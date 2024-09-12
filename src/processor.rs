@@ -4,8 +4,8 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{ 
     account_info::{next_account_info, AccountInfo}, clock, config, entrypoint::ProgramResult, lamports, msg, program::{invoke, invoke_signed}, program_error::ProgramError, pubkey::{self, Pubkey, PubkeyError}, rent::Rent, system_instruction::{self}, system_program, sysvar::Sysvar
     };
-    use crate::{instruction::RNGProgramInstruction, state::{Authority, GameCount, LottoGame, Ticket}};
-    use crate::error::RNGProgramError::{InvalidInstruction, ArithmeticErr, NotActiveErr, AuthorityError, GameIdMismatchError, NoPrizeError, OwnershipError, ParticipantLimitReachedError};
+    use crate::{instruction::RNGProgramInstruction, state::{ GameCount, LottoGame, Ticket}};
+    use crate::error::RNGProgramError::{InvalidInstruction, ArithmeticErr, NotActiveErr, AuthorityError, GameIdMismatchError, NoPrizeError, OwnershipError, ParticipantLimitReachedError, AlreadyActiveError};
     pub struct Processor;
     impl Processor {
     pub fn process(
@@ -26,8 +26,8 @@ use solana_program::{
           RNGProgramInstruction:: StartGame => {
               Self::start_game( accounts,_program_id)
              }, 
-          RNGProgramInstruction:: Participate => {
-              Self::participate( accounts,_program_id)
+          RNGProgramInstruction:: Ticket => {
+              Self::ticket( accounts,_program_id)
              },  
           RNGProgramInstruction:: Draw{prize_amount,winning_numbers }  => {
             Self::draw( accounts,_program_id,prize_amount,winning_numbers)
@@ -35,9 +35,7 @@ use solana_program::{
           RNGProgramInstruction:: ClaimPrize => {
               Self::claim_prize( accounts,_program_id)
              },  
-          RNGProgramInstruction:: CreateAuthority => {
-              Self::create_authority( accounts,_program_id)
-             },
+         
         }
       } 
       
@@ -77,10 +75,10 @@ use solana_program::{
             gameid: count_data.game_count,
             number_of_participants: 0,
             winning_numbers:[0; 5],
-            winner_limit: 10,
+            winner_limit: 1,
             prize_pool: 0,
             prize_amount: 0,
-            is_active: 1,
+            is_active: 0,
         };
 
         lotto_game_info.serialize(&mut &mut lotto_game.try_borrow_mut_data()?[..])?;
@@ -120,14 +118,20 @@ use solana_program::{
         let account_info_iter = &mut accounts.iter();
         let payer = next_account_info(account_info_iter)?;
         let lotto_game = next_account_info(account_info_iter)?;
-
-        let mut lotto_game_data = LottoGame::try_from_slice(&lotto_game.data.borrow())?;
         
         if !payer.is_signer{ 
           msg!("payer is not a signer");
           return Err(AuthorityError.into());
         }
         
+        let mut lotto_game_data = LottoGame::try_from_slice(&lotto_game.data.borrow())?;
+
+        //Oyun zaten aktif mi
+        if lotto_game_data.is_active == 1 {
+          msg!("Game is already active.");
+          return Err(AlreadyActiveError.into());
+        }
+
         // oyunu baslatalim
         lotto_game_data.is_active = 1; 
 
@@ -141,7 +145,7 @@ use solana_program::{
       }
     
       // katilim fonks-bilet olsuturma
-      pub fn participate (
+      pub fn ticket (
         accounts: &[AccountInfo],
         program_id: &Pubkey,
       ) -> ProgramResult {
@@ -156,13 +160,27 @@ use solana_program::{
           msg!("The game is not active");
           return Err(ArithmeticErr.into());
         }
-
-        //kullanici sayisi kontroli???
         
+        let (ticket_pda, bump) = Pubkey::find_program_address(
+          &[b"ticket", lotto_game_data.gameid.to_string().as_ref()],
+          program_id,
+      );
+
+      let rent = Rent:: default();
+      let ticket_rent = rent.minimum_balance(38);
+
+      invoke_signed(
+        &system_instruction::create_account(payer.key, &ticket_pda, ticket_rent, 38, program_id), 
+        &[ticket.clone(),payer.clone()], 
+        &[
+          &[b"ticket", lotto_game_data.gameid.to_string().as_ref(),&[bump]]
+        ]
+      )?;
+
         let ticket_info = Ticket {
             gameid: lotto_game_data.gameid,
             user_address:payer.key.to_bytes(),
-            participant_numbers:[0; 5],
+            participant_numbers:[1,2,3,4,5],
         };
 
         // Katilimci sayisini arttiralim
@@ -182,23 +200,24 @@ use solana_program::{
       ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let payer = next_account_info(account_info_iter)?;
-        let authority  = next_account_info(account_info_iter)?;
         let lotto_game   = next_account_info(account_info_iter)?;
 
-           // otorite imzalayici mi
-        if !authority.is_signer {
+           //payer imzalayici mi
+        if !payer.is_signer {
           return Err(ProgramError::MissingRequiredSignature);
            }
 
         if lotto_game.owner!= program_id {
-            msg!("");
+          msg!("not a program for authority");
+          return Err(OwnershipError.into());
           }
 
         let mut lotto_game_data = LottoGame::try_from_slice(&lotto_game.data.borrow())?; 
 
        //odul aktif degilse odul verilemez
         if lotto_game_data.is_active == 0 {
-          msg!("");
+          msg!("The game is not active");
+          return Err(ArithmeticErr.into());
         }
         
         // odulu guncelleme
@@ -216,12 +235,11 @@ use solana_program::{
       ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let payer = next_account_info(account_info_iter)?;
-        let authority  = next_account_info(account_info_iter)?;
         let lotto_game   = next_account_info(account_info_iter)?;
         let ticket =  next_account_info(account_info_iter)?;
 
            // otorite imzalayici mi
-           if !authority.is_signer {
+           if !payer.is_signer {
             msg!("Authority is not a signer");
             return Err(AuthorityError.into());
              }
@@ -279,37 +297,7 @@ use solana_program::{
         Ok(())
       }
 
-      // Otorite olustur
-     pub fn create_authority (
-      accounts: &[AccountInfo],
-      program_id: &Pubkey,
-    ) -> ProgramResult{
-
-      let account_info_iter = &mut accounts.iter();
-      let payer = next_account_info(account_info_iter)?;
-      let authority = next_account_info(account_info_iter)?;
-
-      let(authority_address, bump) = Pubkey::find_program_address(&[b"authority"], program_id);
-
-      let rent = Rent:: default();
-      let lamports = rent.minimum_balance(32);
-
-      invoke_signed ( 
-        &system_instruction::create_account(payer.key, &authority_address, lamports, 32, program_id),
-        &[authority.clone(),payer.clone()],
-        &[
-          &[b"authority" ,&[bump]]]
-       )?;
-       
-       let authority_data = Authority{ 
-        authority_accounts:payer.key.to_bytes(), 
-        };
-
-       authority_data.serialize(&mut &mut authority.data.borrow_mut()[..])?;
-       
-      Ok(())
-    }
 
 
-    
+
 }

@@ -81,23 +81,3 @@ export class LottoGame {
       ]
     }]
   ]);
-
-  export class Authority { 
-    authority_accounts: Uint8Array = new Uint8Array(32);
-  
-  
-    constructor(fields: {authority_accounts:Uint8Array} | undefined = undefined) {
-      if (fields) {
-        this.authority_accounts = fields.authority_accounts;;
-      }
-    }
-  }
-  
-  export const AuthorityShema = new Map([
-    [Authority, {
-      kind: "struct",
-      fields: [
-        ["authority_accounts", ["u8",32]],
-      ]
-    }]
-  ]);

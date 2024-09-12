@@ -26,6 +26,9 @@ pub enum RNGProgramError {
 
   #[error("Participant Limit Reached Error")]
   ParticipantLimitReachedError,
+
+  #[error("Already active Error")]
+  AlreadyActiveError,
 }
 
 impl From<RNGProgramError> for ProgramError {
