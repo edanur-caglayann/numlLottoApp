@@ -29,6 +29,19 @@ pub enum RNGProgramError {
 
   #[error("Already active Error")]
   AlreadyActiveError,
+
+  #[error("Ticket fee not paid")]
+  TicketFeeNotPaidError,
+
+  #[error("You didn't win")]
+  YouNotWinnerError,
+
+  #[error("Update Error")]
+  UpdateError,
+
+  #[error("Insufficient Funds Error")]
+  InsufficientFundsError,
+  
 }
 
 impl From<RNGProgramError> for ProgramError {

@@ -1,13 +1,12 @@
-use crate::{error::RNGProgramError::InvalidInstruction, state::{}, };
+use crate::{error::RNGProgramError::InvalidInstruction, state::DrawData, };
 use borsh::BorshDeserialize;
-use solana_program::{msg, program_error::ProgramError};
+use solana_program::{instruction::InstructionError, msg, program_error::ProgramError};
 
 #[derive(Debug, PartialEq)]
 pub enum RNGProgramInstruction { 
   GameCount,
   CreateLottoGame,
-  StartGame,
-  Ticket,
+  Ticket{participant_numbers: [u8; 5]},
   Draw{prize_amount:u64, winning_numbers: [u8; 5]},
   ClaimPrize,
 }
@@ -20,15 +19,22 @@ impl RNGProgramInstruction {
       Ok(match tag {
         1 => Self::GameCount,
         2 => Self::CreateLottoGame,
-        3 => Self::StartGame,
-        4 => Self::Ticket,
-        5 => {
-          let (prize_amount_bytes, winning_numbers_bytes) = rest.split_at(8); // 8 byte'lik parca ve kalan kismi olarak ikiye ayirdik
-          let prize_amount = u64::from_le_bytes(prize_amount_bytes.try_into().map_err(|_| InvalidInstruction)?); // kalan kismi wn icin kullandik. 5 byte'lik dizi
-          let winning_numbers: [u8; 5] = winning_numbers_bytes[..5].try_into().map_err(|_| InvalidInstruction)?;
-          Self::Draw { prize_amount, winning_numbers }
-      },
-        6 => Self::ClaimPrize,
+        3 => {
+          if rest.len() < 5 {
+            return Err(InvalidInstruction.into());
+          }
+          let mut arr = [0u8; 5];
+          arr.copy_from_slice(&rest[..5]);
+          Self::Ticket { participant_numbers: arr }
+      }
+      4 => {
+          let draw_data = DrawData::try_from_slice(&rest).map_err(|_|InvalidInstruction)?;
+          Self::Draw {
+              prize_amount: draw_data.prize_amount,
+              winning_numbers: draw_data.winning_numbers,
+          }
+      }
+        5 => Self::ClaimPrize,
         _ => return Err(InvalidInstruction.into()),
       })
     }

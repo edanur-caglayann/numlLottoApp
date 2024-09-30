@@ -27,41 +27,44 @@ export const TicketShema = new Map([
 ]);
 
 export class LottoGame { 
-    gameid: number = 0;
-    number_of_participants: number = 0;
-    winning_numbers:Uint8Array = new Uint8Array(5);
-    winner_limit: number = 0;
-    prize_pool: bigint = BigInt(0);
-    prize_amount: bigint = BigInt(0);
-    is_active: number = 0;
+  gameid: number = 0;
+  number_of_participants: number = 0;
+  winning_numbers: Uint8Array = new Uint8Array(5);
+  number_of_winner: number = 0;
+  prize_pool: number = 0; 
+  prize_amount: number = 0; 
+  is_active: number = 0;
+  ticket_money: number = 0; 
 
-    constructor(fields: {gameid:number; number_of_participants:number; winning_numbers:Uint8Array; winner_limit:number; prize_pool:bigint; prize_amount:bigint; is_active:number;} | undefined = undefined) {
-      if (fields) {
-        this.gameid = fields.gameid;
-        this.number_of_participants = fields.number_of_participants;
-        this.winning_numbers = fields.winning_numbers;
-        this.winner_limit = fields.winner_limit;
-        this.prize_pool = fields.prize_pool;
-        this.prize_amount = fields.prize_amount;
-        this.is_active = fields.is_active;
-      }
+  constructor(fields: {gameid:number; number_of_participants:number; winning_numbers:Uint8Array; number_of_winner:number; prize_pool:number; prize_amount:number; is_active:number; ticket_money:number} | undefined = undefined) {
+    if (fields) {
+      this.gameid = fields.gameid;
+      this.number_of_participants = fields.number_of_participants;
+      this.winning_numbers = fields.winning_numbers;
+      this.number_of_winner = fields.number_of_winner;
+      this.prize_pool = fields.prize_pool;
+      this.prize_amount = fields.prize_amount;
+      this.is_active = fields.is_active;
+      this.ticket_money = fields.ticket_money;
     }
   }
+}
   
   export const LottoGameShema = new Map([
     [LottoGame, {
       kind: "struct",
       fields: [
         ["gameid", "u8"],
-        ["number_of_participants","u8"],
-        ["winning_numbers",  ["u8",5]],
-        ["winner_limit", "u8"],
-        ["prize_pool", "u64"],
-        ["prize_amount", "u64"],
+        ["number_of_participants", "u8"],
+        ["winning_numbers", ["u8", 5]],
+        ["number_of_winner", "u8"],
+        ["prize_pool", "u64"],  
+        ["prize_amount", "u64"], 
         ["is_active", "u8"],
+        ["ticket_money", "u64"],
       ]
     }]
-  ]);
+]);
 
   export class GameCount { 
     game_count: number = 0;
@@ -78,6 +81,30 @@ export class LottoGame {
       kind: "struct",
       fields: [
         ["game_count", "u8"],
+      ]
+    }]
+  ]);
+
+
+  export class DrawData { 
+    prize_amount: bigint = BigInt(0);
+    winning_numbers:Uint8Array = new Uint8Array(5);
+
+    constructor(fields: {prize_amount:bigint;winning_numbers:Uint8Array;} | undefined = undefined) {
+      if (fields) {
+        this.prize_amount = fields.prize_amount;
+        this.winning_numbers = fields.winning_numbers;
+      }
+    }
+  }
+  
+  export const DrawDataShema = new Map([
+    [DrawData, {
+      kind: "struct",
+      fields: [
+        ["prize_amount", "u64"],
+        ["winning_numbers",  ["u8",5]],
+
       ]
     }]
   ]);
